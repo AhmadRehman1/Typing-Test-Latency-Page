@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'typing-latency-tester-v3';
+const CACHE_NAME = 'typing-latency-tester-v4';
 const APP_SHELL = [
   './',
   './index.html',

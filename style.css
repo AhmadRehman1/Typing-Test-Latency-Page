@@ -131,9 +131,11 @@ body {
 
 /* Typing test */
 .passage-wrap {
+  position: relative;
   background: transparent;
   padding: 8px 4px 22px;
   margin-bottom: 6px;
+  cursor: text;
 }
 
 .passage {
@@ -144,6 +146,35 @@ body {
   margin: 0;
   color: var(--text-dim);
   word-wrap: break-word;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.passage-wrap.unfocused .passage {
+  filter: blur(4px);
+  opacity: 0.6;
+  user-select: none;
+}
+
+.focus-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.focus-overlay.hidden { display: none; }
+
+.focus-overlay span {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: var(--radius);
 }
 
 .passage .char-correct { color: var(--text); }
@@ -169,23 +200,17 @@ body {
   50% { opacity: 0; }
 }
 
-.type-input {
-  width: 100%;
-  min-height: 70px;
-  background: transparent;
+.type-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
   border: none;
-  border-bottom: 2px solid var(--border);
-  border-radius: 0;
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 1.05rem;
-  padding: 12px 4px;
-  resize: none;
-  outline: none;
-  transition: border-color 0.15s ease;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
-
-.type-input:focus { border-bottom-color: var(--accent); }
 
 .controls {
   display: flex;

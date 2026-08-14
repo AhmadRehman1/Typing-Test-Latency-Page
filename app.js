@@ -311,6 +311,8 @@ function generatePassage(length) {
 }
 
 const passageEl = document.getElementById('passage');
+const passageWrapEl = document.getElementById('passageWrap');
+const focusOverlayEl = document.getElementById('focusOverlay');
 const typeInput = document.getElementById('typeInput');
 const wpmLiveEl = document.getElementById('wpmLive');
 const accLiveEl = document.getElementById('accLive');
@@ -489,6 +491,19 @@ function finishTypingTest() {
 
   typingResultsEl.classList.remove('hidden');
 }
+
+passageWrapEl.addEventListener('click', () => typeInput.focus());
+
+typeInput.addEventListener('focus', () => {
+  passageWrapEl.classList.remove('unfocused');
+  focusOverlayEl.classList.add('hidden');
+});
+
+typeInput.addEventListener('blur', () => {
+  if (typing.finished) return;
+  passageWrapEl.classList.add('unfocused');
+  focusOverlayEl.classList.remove('hidden');
+});
 
 typeInput.addEventListener('paste', (e) => e.preventDefault());
 

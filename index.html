@@ -48,11 +48,14 @@
       </div>
     </div>
 
-    <div class="passage-wrap">
+    <div class="passage-wrap" id="passageWrap">
       <p id="passage" class="passage"></p>
+      <div class="focus-overlay" id="focusOverlay">
+        <span>Click here to focus</span>
+      </div>
     </div>
 
-    <textarea id="typeInput" class="type-input" placeholder="Click here and start typing to begin…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    <textarea id="typeInput" class="type-input-hidden" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Typing test input"></textarea>
 
     <div class="controls">
       <button id="restartTyping" class="btn">Restart</button>
