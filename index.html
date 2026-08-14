@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Typing &amp; Latency Tester</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1>Typing &amp; Latency Tester</h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="typing" role="tab" aria-selected="true">Typing Speed</button>
+      <button class="tab-btn" data-tab="latency" role="tab" aria-selected="false">Key Latency</button>
+    </nav>
+  </header>
+
+  <!-- ===================== TYPING TEST ===================== -->
+  <section id="panel-typing" class="panel active" role="tabpanel">
+
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-value" id="wpmLive">0</span>
+        <span class="stat-label">WPM</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="accLive">100%</span>
+        <span class="stat-label">Accuracy</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="timeLive">0s</span>
+        <span class="stat-label">Time</span>
+      </div>
+      <div class="stat best">
+        <span class="stat-value" id="wpmBest">–</span>
+        <span class="stat-label">Best WPM</span>
+      </div>
+    </div>
+
+    <div class="passage-wrap">
+      <p id="passage" class="passage"></p>
+    </div>
+
+    <textarea id="typeInput" class="type-input" placeholder="Click here and start typing to begin…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+
+    <div class="controls">
+      <button id="restartTyping" class="btn">Restart</button>
+      <select id="passageLength" class="select">
+        <option value="short">Short</option>
+        <option value="medium" selected>Medium</option>
+        <option value="long">Long</option>
+      </select>
+    </div>
+
+    <div id="typingResults" class="results hidden">
+      <h2>Results</h2>
+      <div class="results-grid">
+        <div><span class="results-value" id="resWpm">0</span><span class="results-label">WPM</span></div>
+        <div><span class="results-value" id="resAcc">0%</span><span class="results-label">Accuracy</span></div>
+        <div><span class="results-value" id="resTime">0s</span><span class="results-label">Time</span></div>
+        <div><span class="results-value" id="resChars">0</span><span class="results-label">Characters</span></div>
+      </div>
+      <button id="tryAgain" class="btn primary">Try Again</button>
+    </div>
+
+  </section>
+
+  <!-- ===================== LATENCY TEST ===================== -->
+  <section id="panel-latency" class="panel" role="tabpanel">
+
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-value" id="latAvg">–</span>
+        <span class="stat-label">Avg (ms)</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="latMin">–</span>
+        <span class="stat-label">Min (ms)</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="latMax">–</span>
+        <span class="stat-label">Max (ms)</span>
+      </div>
+      <div class="stat best">
+        <span class="stat-value" id="latBest">–</span>
+        <span class="stat-label">Best Avg</span>
+      </div>
+    </div>
+
+    <div class="latency-stage" id="latencyStage">
+      <div class="latency-idle" id="latencyIdle">
+        <p>Press <strong>Start</strong>, then press the key shown as fast as you can when it appears.</p>
+      </div>
+      <div class="latency-prompt hidden" id="latencyPrompt">
+        <span class="key-glyph" id="keyGlyph">A</span>
+      </div>
+      <div class="latency-wait hidden" id="latencyWait">
+        <p>Wait for it…</p>
+      </div>
+      <div class="latency-early hidden" id="latencyEarly">
+        <p>Too soon! Wait for the key to appear.</p>
+      </div>
+    </div>
+
+    <div class="progress-row">
+      <span id="attemptCount">0 / 20 attempts</span>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="controls">
+      <button id="startLatency" class="btn primary">Start</button>
+      <button id="restartLatency" class="btn">Restart</button>
+    </div>
+
+    <div class="histogram-wrap">
+      <h3>Latency Distribution</h3>
+      <div class="histogram" id="histogram"></div>
+    </div>
+
+    <div class="log-wrap">
+      <h3>Log</h3>
+      <ol id="latencyLog" class="latency-log"></ol>
+    </div>
+
+  </section>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
