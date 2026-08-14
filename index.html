@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Typing &amp; Latency Tester</title>
 <meta name="description" content="A typing speed and keyboard latency tester that runs entirely in your browser.">
-<meta name="theme-color" content="#10121a">
+<meta name="theme-color" content="#323437">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,6 +22,7 @@
     <nav class="tabs" role="tablist">
       <button class="tab-btn active" data-tab="typing" role="tab" aria-selected="true">Typing Speed</button>
       <button class="tab-btn" data-tab="latency" role="tab" aria-selected="false">Key Latency</button>
+      <button class="tab-btn" data-tab="history" role="tab" aria-selected="false">History</button>
     </nav>
   </header>
 
@@ -132,6 +136,50 @@
     <div class="log-wrap">
       <h3>Log</h3>
       <ol id="latencyLog" class="latency-log"></ol>
+    </div>
+
+  </section>
+
+  <!-- ===================== HISTORY ===================== -->
+  <section id="panel-history" class="panel" role="tabpanel">
+
+    <div class="stats-row">
+      <div class="stat best">
+        <span class="stat-value" id="streakValue">0</span>
+        <span class="stat-label">Day Streak</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="historySessionCount">0</span>
+        <span class="stat-label">Sessions Logged</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="historyBestWpm">–</span>
+        <span class="stat-label">Best WPM</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="historyBestLatency">–</span>
+        <span class="stat-label">Best Latency</span>
+      </div>
+    </div>
+
+    <div class="wpm-chart-wrap">
+      <h3>WPM Trend (last 30 typing sessions)</h3>
+      <svg id="historyWpmChart" viewBox="0 0 300 80" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="wpm-chart-wrap">
+      <h3>Latency Trend (last 30 sessions, avg ms)</h3>
+      <svg id="historyLatencyChart" viewBox="0 0 300 80" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="log-wrap">
+      <h3>Recent Sessions</h3>
+      <ol id="historyLog" class="latency-log"></ol>
+    </div>
+
+    <div class="controls">
+      <button id="exportHistory" class="btn">Export Data</button>
+      <button id="clearHistory" class="btn">Clear History</button>
     </div>
 
   </section>

@@ -8,6 +8,7 @@ const tabBtns = document.querySelectorAll('.tab-btn');
 const panels = {
   typing: document.getElementById('panel-typing'),
   latency: document.getElementById('panel-latency'),
+  history: document.getElementById('panel-history'),
 };
 
 tabBtns.forEach((btn) => {
@@ -24,8 +25,10 @@ tabBtns.forEach((btn) => {
 
     if (btn.dataset.tab === 'latency') {
       latency.stopKeyListener(); // stage is inactive until Start pressed
-    } else {
+    } else if (btn.dataset.tab === 'typing') {
       typeInput.focus();
+    } else if (btn.dataset.tab === 'history') {
+      renderHistoryView();
     }
   });
 });
@@ -34,8 +37,147 @@ window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
   if (activeTab === 'typing') startNewTypingTest();
-  else resetLatencyTest();
+  else if (activeTab === 'latency') resetLatencyTest();
 });
+
+/* ============================================================
+   Shared: Session History
+   ============================================================ */
+
+const HISTORY_TYPING_KEY = 'typingTester.history.typing';
+const HISTORY_LATENCY_KEY = 'typingTester.history.latency';
+const HISTORY_MAX_ENTRIES = 200;
+
+function loadHistory(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function appendHistory(key, entry) {
+  const list = loadHistory(key);
+  list.push(entry);
+  if (list.length > HISTORY_MAX_ENTRIES) list.splice(0, list.length - HISTORY_MAX_ENTRIES);
+  localStorage.setItem(key, JSON.stringify(list));
+}
+
+function computeStreak() {
+  // entries are stored as UTC ISO timestamps, so the streak walk stays in UTC
+  // calendar days throughout — mixing in local-time day boundaries here would
+  // drop or duplicate a day for anyone not at UTC+0.
+  const dates = [...loadHistory(HISTORY_TYPING_KEY), ...loadHistory(HISTORY_LATENCY_KEY)]
+    .map((e) => e.date.slice(0, 10));
+  const daySet = new Set(dates);
+  if (daySet.size === 0) return 0;
+
+  const msPerDay = 86400000;
+  const toKey = (ms) => new Date(ms).toISOString().slice(0, 10);
+  let cursor = Date.parse(toKey(Date.now()) + 'T00:00:00Z');
+  if (!daySet.has(toKey(cursor))) cursor -= msPerDay;
+
+  let streak = 0;
+  while (daySet.has(toKey(cursor))) {
+    streak++;
+    cursor -= msPerDay;
+  }
+  return streak;
+}
+
+function renderTrendChart(svgEl, values, lowerIsBetter) {
+  if (values.length < 2) {
+    svgEl.innerHTML = '';
+    return;
+  }
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = Math.max(max - min, 1);
+  const points = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * 300;
+      const normalized = lowerIsBetter ? (max - v) / range : (v - min) / range;
+      const y = 76 - normalized * 68;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  svgEl.innerHTML = `<polyline class="wpm-line" points="${points}" />`;
+}
+
+const streakValueEl = document.getElementById('streakValue');
+const historySessionCountEl = document.getElementById('historySessionCount');
+const historyBestWpmEl = document.getElementById('historyBestWpm');
+const historyBestLatencyEl = document.getElementById('historyBestLatency');
+const historyWpmChartEl = document.getElementById('historyWpmChart');
+const historyLatencyChartEl = document.getElementById('historyLatencyChart');
+const historyLogEl = document.getElementById('historyLog');
+const exportHistoryBtn = document.getElementById('exportHistory');
+const clearHistoryBtn = document.getElementById('clearHistory');
+
+function renderHistoryView() {
+  const typingHist = loadHistory(HISTORY_TYPING_KEY);
+  const latencyHist = loadHistory(HISTORY_LATENCY_KEY);
+
+  streakValueEl.textContent = computeStreak();
+  historySessionCountEl.textContent = typingHist.length + latencyHist.length;
+
+  const bestWpm = loadBestWpm();
+  const bestLatency = loadBestLatency();
+  historyBestWpmEl.textContent = bestWpm === null ? '–' : Math.round(bestWpm);
+  historyBestLatencyEl.textContent = bestLatency === null ? '–' : Math.round(bestLatency);
+
+  renderTrendChart(historyWpmChartEl, typingHist.slice(-30).map((e) => e.wpm), false);
+  renderTrendChart(historyLatencyChartEl, latencyHist.slice(-30).map((e) => e.avgMs), true);
+
+  const combined = [
+    ...typingHist.map((e) => ({ ...e, kind: 'Typing' })),
+    ...latencyHist.map((e) => ({ ...e, kind: 'Latency' })),
+  ]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 25);
+
+  historyLogEl.innerHTML = combined.length === 0
+    ? '<li><span>No sessions logged yet — finish a test to start your history.</span></li>'
+    : combined
+        .map((e) => {
+          const when = new Date(e.date).toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+          const summary = e.kind === 'Typing' ? `${e.wpm} WPM · ${e.accuracy}%` : `${e.avgMs}ms avg`;
+          return `<li><span>${when} · ${e.kind}</span><span class="lat-ms">${summary}</span></li>`;
+        })
+        .join('');
+}
+
+function exportHistoryData() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    typing: loadHistory(HISTORY_TYPING_KEY),
+    latency: loadHistory(HISTORY_LATENCY_KEY),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `typing-latency-history-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearHistoryData() {
+  if (!confirm('Clear all saved session history? This cannot be undone.')) return;
+  localStorage.removeItem(HISTORY_TYPING_KEY);
+  localStorage.removeItem(HISTORY_LATENCY_KEY);
+  renderHistoryView();
+}
+
+exportHistoryBtn.addEventListener('click', exportHistoryData);
+clearHistoryBtn.addEventListener('click', clearHistoryData);
 
 /* ============================================================
    Typing Speed Test
@@ -72,6 +214,76 @@ const SENTENCES = [
   'A well organized desk can make the whole day easier.',
   'Rain tapped gently against the window as they talked.',
   'The team reviewed the plan one more time before lunch.',
+  'The morning fog lifted slowly over the quiet fields.',
+  'He checked his email twice before leaving for the office.',
+  'The old bookstore on the corner still smelled of paper and dust.',
+  'A soft rain began just as the game ended.',
+  'She tied her shoes and stepped out into the cold air.',
+  'The recipe called for more sugar than she expected.',
+  'Traffic slowed to a crawl near the construction site.',
+  'The children built a small fort out of couch cushions.',
+  'His phone buzzed twice before he finally answered it.',
+  'The museum was nearly empty on a weekday afternoon.',
+  'A warm cup of tea helped calm her nerves before the meeting.',
+  'The printer jammed again right before the deadline.',
+  'They planted tomatoes and peppers along the back fence.',
+  'The subway was delayed, so she read another chapter of her book.',
+  'He tightened the last bolt and stepped back to check his work.',
+  'The lake was perfectly still in the early evening light.',
+  'She organized her notes before the exam started.',
+  'A gentle wind carried the smell of fresh cut grass.',
+  'The waiter brought the check without being asked twice.',
+  'He practiced the same piano piece until it felt effortless.',
+  'The hikers reached the summit just before the clouds rolled in.',
+  'Her desk was covered in sticky notes and half finished lists.',
+  'The bus arrived exactly on time for once.',
+  'A single lamp lit the room while the storm passed outside.',
+  'He saved the file twice, just to be safe.',
+  'The bread rose slowly on the counter overnight.',
+  'She adjusted the thermostat and settled back into her chair.',
+  'The dog waited patiently by the door for its evening walk.',
+  'New employees spent their first week learning the software.',
+  'The bridge lights reflected off the calm water below.',
+  'He double checked the address before leaving the house.',
+  'The classroom fell quiet as the teacher began to speak.',
+  'A late season storm knocked out power for a few hours.',
+  'She folded the laundry while listening to an old podcast.',
+  'The engineers reviewed the blueprint one final time.',
+  'Morning traffic gave way to a quiet afternoon.',
+  'He replaced the batteries and the remote worked again.',
+  'The orchard was full of ripe apples by early autumn.',
+  'She whispered the answer so only her friend could hear.',
+  'The airport announcement echoed through the crowded terminal.',
+  'A thin layer of frost covered the windshield at dawn.',
+  'He sorted the mail into three separate piles.',
+  'The coach called a timeout with two minutes left.',
+  'Her handwriting grew neater the more she practiced.',
+  'The ferry crossed the bay just as the sun was setting.',
+  'They repainted the fence a pale shade of blue.',
+  'The office was silent except for the hum of the printer.',
+  'A curious cat watched from the windowsill all afternoon.',
+  'He measured the room twice before ordering the carpet.',
+  'The candles flickered as someone opened the front door.',
+  'She reviewed her notes one last time before the interview.',
+  'The farmers market opened early on Saturday mornings.',
+  'A narrow trail wound through the dense forest.',
+  'He backed up his files before updating the software.',
+  'The choir rehearsed the same song for nearly an hour.',
+  'Snow began to fall just as the shops were closing.',
+  'She sketched the skyline from the rooftop cafe.',
+  'The engine sputtered once before finally starting.',
+  'A quiet street lamp lit the empty sidewalk.',
+  'He labeled each box before loading the moving truck.',
+  'The tide slowly crept up over the smooth sand.',
+  'She set three alarms just in case she overslept.',
+  'The library extended its hours during exam season.',
+  'A flock of geese flew low over the open field.',
+  'He compared prices at three different stores before buying.',
+  'The kettle whistled just as the phone started to ring.',
+  'Her umbrella barely survived the sudden gust of wind.',
+  'The team celebrated quietly after a long week of work.',
+  'A narrow beam of light cut through the dusty attic.',
+  'He rewound the tape to listen to the interview again.',
 ];
 
 const PASSAGE_LENGTHS = { short: 12, medium: 24, long: 45 };
@@ -266,6 +478,14 @@ function finishTypingTest() {
   saveBestWpmIfBetter(stats.wpm);
   renderBestWpm();
   renderWpmChart();
+
+  appendHistory(HISTORY_TYPING_KEY, {
+    date: new Date().toISOString(),
+    wpm: wpmRounded,
+    accuracy: Math.round(stats.accuracy),
+    errors: typing.errorKeystrokes,
+    timeMs: Math.round(elapsedMs),
+  });
 
   typingResultsEl.classList.remove('hidden');
 }
@@ -463,6 +683,14 @@ function finishLatencyTest() {
   const avg = latency.results.reduce((a, b) => a + b, 0) / latency.results.length;
   saveBestLatencyIfBetter(avg);
   renderBestLatency();
+
+  appendHistory(HISTORY_LATENCY_KEY, {
+    date: new Date().toISOString(),
+    avgMs: Math.round(avg),
+    minMs: Math.round(Math.min(...latency.results)),
+    maxMs: Math.round(Math.max(...latency.results)),
+    attempts: latency.results.length,
+  });
 
   latencyIdleEl.innerHTML = `<p>Done! Average latency: <strong>${Math.round(avg)}ms</strong> over ${latency.results.length} attempts. Press Start to try again.</p>`;
   showStage(latencyIdleEl);
