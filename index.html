@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Typing &amp; Latency Tester</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌨️</text></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -52,6 +53,7 @@
         <option value="medium" selected>Medium</option>
         <option value="long">Long</option>
       </select>
+      <span class="hint">Tab or Esc to restart</span>
     </div>
 
     <div id="typingResults" class="results hidden">
@@ -60,7 +62,11 @@
         <div><span class="results-value" id="resWpm">0</span><span class="results-label">WPM</span></div>
         <div><span class="results-value" id="resAcc">0%</span><span class="results-label">Accuracy</span></div>
         <div><span class="results-value" id="resTime">0s</span><span class="results-label">Time</span></div>
-        <div><span class="results-value" id="resChars">0</span><span class="results-label">Characters</span></div>
+        <div><span class="results-value" id="resErrors">0</span><span class="results-label">Errors</span></div>
+      </div>
+      <div class="wpm-chart-wrap">
+        <h3>WPM Over Time</h3>
+        <svg id="wpmChart" viewBox="0 0 300 80" preserveAspectRatio="none"></svg>
       </div>
       <button id="tryAgain" class="btn primary">Try Again</button>
     </div>

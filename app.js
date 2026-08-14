@@ -24,43 +24,78 @@ tabBtns.forEach((btn) => {
 
     if (btn.dataset.tab === 'latency') {
       latency.stopKeyListener(); // stage is inactive until Start pressed
+    } else {
+      typeInput.focus();
     }
   });
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+  if (activeTab === 'typing') startNewTypingTest();
+  else resetLatencyTest();
 });
 
 /* ============================================================
    Typing Speed Test
    ============================================================ */
 
-const WORD_BANK = (
-  'the of and to a in is you that it he was for on are as with his they I ' +
-  'at be this have from or one had by word but not what all were we when ' +
-  'your can said there use an each which she do how their if will up other ' +
-  'about out many then them these so some her would make like him into time ' +
-  'has look two more write go see number no way could people my than first ' +
-  'water been call who oil its now find long down day did get come made may ' +
-  'part over new sound take only little work know place year live me back ' +
-  'give most very after thing our just name good sentence man think say ' +
-  'great where help through much before line right too mean old any same ' +
-  'tell boy follow came want show also around form three small set put end ' +
-  'does another well large must big even such because turn here why ask ' +
-  'went men read need land different home us move try kind hand picture ' +
-  'again change off play spell air away animal house point page letter ' +
-  'mother answer found study still learn should world high every near add ' +
-  'food between own below country plant last school father keep tree never ' +
-  'start city earth eye light thought head under story saw left dont few ' +
-  'while along might close something seem next hard open example begin life'
-).split(/\s+/);
+const SENTENCES = [
+  'The quick brown fox jumps over the lazy dog.',
+  'A gentle breeze drifted through the open window.',
+  'She smiled and closed the book before turning off the light.',
+  'Practice does not make perfect, but it does make progress.',
+  'The old clock on the wall ticked steadily through the night.',
+  'He poured a cup of coffee and watched the rain fall.',
+  'Learning to type quickly takes patience and consistent practice.',
+  'The mountain trail wound upward through tall pine trees.',
+  'Somewhere in the city, a train rumbled across the bridge.',
+  'Good habits are built one small decision at a time.',
+  'The garden was full of color after the spring rain.',
+  'A calm mind often leads to clearer decisions.',
+  'They walked along the shore as the sun began to set.',
+  'Every keystroke brings you closer to mastering the keyboard.',
+  'The library was quiet except for the turning of pages.',
+  'Simple tools, used well, can solve complicated problems.',
+  'The chef added a pinch of salt and stirred the soup.',
+  'Clouds gathered slowly over the valley before the storm.',
+  'He typed the report twice to make sure it was correct.',
+  'A small dog barked at the mail carrier down the street.',
+  'The scientist recorded every result in a small notebook.',
+  'Music drifted from the open door of the old cafe.',
+  'Consistency matters more than speed when you are learning.',
+  'The bridge stretched far across the wide, quiet river.',
+  'She checked her watch and hurried toward the station.',
+  'New ideas often come from asking simple questions.',
+  'The bakery smelled of fresh bread every single morning.',
+  'A well organized desk can make the whole day easier.',
+  'Rain tapped gently against the window as they talked.',
+  'The team reviewed the plan one more time before lunch.',
+];
 
-const PASSAGE_LENGTHS = { short: 10, medium: 25, long: 45 };
+const PASSAGE_LENGTHS = { short: 12, medium: 24, long: 45 };
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 function generatePassage(length) {
-  const count = PASSAGE_LENGTHS[length] || PASSAGE_LENGTHS.medium;
-  const words = [];
-  for (let i = 0; i < count; i++) {
-    words.push(WORD_BANK[Math.floor(Math.random() * WORD_BANK.length)]);
+  const target = PASSAGE_LENGTHS[length] || PASSAGE_LENGTHS.medium;
+  const pool = shuffle(SENTENCES.slice());
+  const chosen = [];
+  let wordCount = 0;
+  for (const sentence of pool) {
+    if (wordCount >= target) break;
+    chosen.push(sentence);
+    wordCount += sentence.trim().split(/\s+/).length;
   }
-  return words.join(' ');
+  if (chosen.length === 0) chosen.push(pool[0]);
+  return chosen.join(' ');
 }
 
 const passageEl = document.getElementById('passage');
@@ -76,15 +111,22 @@ const tryAgainBtn = document.getElementById('tryAgain');
 const resWpm = document.getElementById('resWpm');
 const resAcc = document.getElementById('resAcc');
 const resTime = document.getElementById('resTime');
-const resChars = document.getElementById('resChars');
+const resErrors = document.getElementById('resErrors');
+const wpmChartEl = document.getElementById('wpmChart');
 
 const BEST_WPM_KEY = 'typingTester.bestWpm';
+
+const NAV_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
 
 const typing = {
   passage: '',
   startTime: null,
   finished: false,
   tickInterval: null,
+  prevValue: '',
+  totalKeystrokes: 0,
+  errorKeystrokes: 0,
+  wpmSamples: [],
 };
 
 function loadBestWpm() {
@@ -127,9 +169,14 @@ function startNewTypingTest() {
   typing.passage = generatePassage(passageLengthSelect.value);
   typing.startTime = null;
   typing.finished = false;
+  typing.prevValue = '';
+  typing.totalKeystrokes = 0;
+  typing.errorKeystrokes = 0;
+  typing.wpmSamples = [];
   typeInput.value = '';
   typeInput.disabled = false;
   typingResultsEl.classList.add('hidden');
+  wpmChartEl.innerHTML = '';
   wpmLiveEl.textContent = '0';
   accLiveEl.textContent = '100%';
   timeLiveEl.textContent = '0s';
@@ -146,7 +193,9 @@ function computeStats(elapsedMs) {
   }
   const minutes = Math.max(elapsedMs / 60000, 1 / 60); // floor of 1 second, avoids absurd WPM on paste/instant input
   const wpm = (correct / 5) / minutes;
-  const accuracy = typed.length === 0 ? 100 : (correct / typed.length) * 100;
+  const accuracy = typing.totalKeystrokes === 0
+    ? 100
+    : ((typing.totalKeystrokes - typing.errorKeystrokes) / typing.totalKeystrokes) * 100;
   return { correct, typedLen: typed.length, wpm, accuracy, elapsedMs };
 }
 
@@ -157,6 +206,31 @@ function updateLiveStats() {
   wpmLiveEl.textContent = Math.round(stats.wpm);
   accLiveEl.textContent = Math.round(stats.accuracy) + '%';
   timeLiveEl.textContent = Math.round(elapsedMs / 1000) + 's';
+}
+
+function recordWpmSample() {
+  if (!typing.startTime) return;
+  const elapsedMs = performance.now() - typing.startTime;
+  const stats = computeStats(elapsedMs);
+  typing.wpmSamples.push({ t: elapsedMs, wpm: stats.wpm });
+}
+
+function renderWpmChart() {
+  const samples = typing.wpmSamples;
+  if (samples.length < 2) {
+    wpmChartEl.innerHTML = '';
+    return;
+  }
+  const maxWpm = Math.max(...samples.map((s) => s.wpm), 1);
+  const maxT = samples[samples.length - 1].t || 1;
+  const points = samples
+    .map((s) => {
+      const x = (s.t / maxT) * 300;
+      const y = 76 - (s.wpm / maxWpm) * 68;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  wpmChartEl.innerHTML = `<polyline class="wpm-line" points="${points}" />`;
 }
 
 function updatePassageHighlight() {
@@ -187,33 +261,65 @@ function finishTypingTest() {
   resWpm.textContent = wpmRounded;
   resAcc.textContent = Math.round(stats.accuracy) + '%';
   resTime.textContent = (elapsedMs / 1000).toFixed(1) + 's';
-  resChars.textContent = stats.typedLen;
+  resErrors.textContent = typing.errorKeystrokes;
 
   saveBestWpmIfBetter(stats.wpm);
   renderBestWpm();
+  renderWpmChart();
 
   typingResultsEl.classList.remove('hidden');
 }
 
 typeInput.addEventListener('paste', (e) => e.preventDefault());
 
+typeInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    startNewTypingTest();
+    return;
+  }
+  if (NAV_KEYS.includes(e.key)) {
+    e.preventDefault(); // keep the cursor pinned to the end so raw accuracy tracking stays valid
+  }
+});
+
+typeInput.addEventListener('click', () => {
+  const len = typeInput.value.length;
+  typeInput.setSelectionRange(len, len);
+});
+
 typeInput.addEventListener('input', () => {
   if (typing.finished) return;
 
   if (typing.startTime === null) {
     typing.startTime = performance.now();
-    typing.tickInterval = setInterval(updateLiveStats, 250);
+    typing.tickInterval = setInterval(() => {
+      updateLiveStats();
+      recordWpmSample();
+    }, 250);
   }
 
+  let newValue = typeInput.value;
+
   // prevent typing past passage length
-  if (typeInput.value.length > typing.passage.length) {
-    typeInput.value = typeInput.value.slice(0, typing.passage.length);
+  if (newValue.length > typing.passage.length) {
+    newValue = newValue.slice(0, typing.passage.length);
+    typeInput.value = newValue;
   }
+
+  // raw accuracy tracks every keystroke made, including ones later fixed with backspace
+  if (newValue.length > typing.prevValue.length) {
+    for (let i = typing.prevValue.length; i < newValue.length; i++) {
+      typing.totalKeystrokes++;
+      if (newValue[i] !== typing.passage[i]) typing.errorKeystrokes++;
+    }
+  }
+  typing.prevValue = newValue;
 
   updatePassageHighlight();
   updateLiveStats();
 
-  if (typeInput.value.length === typing.passage.length) {
+  if (newValue.length === typing.passage.length) {
     finishTypingTest();
   }
 });

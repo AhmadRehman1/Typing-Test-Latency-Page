@@ -151,8 +151,19 @@ body {
 
 .passage .char-correct { color: var(--green); }
 .passage .char-incorrect { color: var(--red); background: rgba(248,113,113,0.15); border-radius: 2px; }
-.passage .char-current { color: var(--text); background: var(--accent-dim); border-radius: 2px; outline: 1px solid var(--accent); }
+.passage .char-current {
+  color: var(--text);
+  background: var(--accent-dim);
+  border-radius: 2px;
+  outline: 1px solid var(--accent);
+  animation: caret-blink 1s steps(1) infinite;
+}
 .passage .char-pending { color: var(--text-dim); }
+
+@keyframes caret-blink {
+  0%, 100% { outline-color: var(--accent); }
+  50% { outline-color: transparent; }
+}
 
 .type-input {
   width: 100%;
@@ -217,6 +228,12 @@ body {
   cursor: pointer;
 }
 
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
 .results {
   margin-top: 22px;
   background: var(--bg-elev);
@@ -255,6 +272,35 @@ body {
   letter-spacing: 0.06em;
   color: var(--text-dim);
   margin-top: 4px;
+}
+
+.wpm-chart-wrap {
+  margin: 4px 0 22px;
+  text-align: left;
+}
+
+.wpm-chart-wrap h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+.wpm-chart-wrap svg {
+  width: 100%;
+  height: 80px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.wpm-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
 /* Latency test */
