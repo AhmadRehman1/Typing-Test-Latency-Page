@@ -296,18 +296,30 @@ function shuffle(arr) {
   return arr;
 }
 
-function generatePassage(length) {
-  const target = PASSAGE_LENGTHS[length] || PASSAGE_LENGTHS.medium;
+const TIME_MODE_PREFIX = 'time';
+const TIME_MODE_INITIAL_WORDS = 60;
+const TIME_MODE_EXTEND_WORDS = 20;
+const TIME_MODE_EXTEND_BUFFER_CHARS = 150;
+
+function pickSentenceChunk(targetWords) {
   const pool = shuffle(SENTENCES.slice());
   const chosen = [];
   let wordCount = 0;
   for (const sentence of pool) {
-    if (wordCount >= target) break;
+    if (wordCount >= targetWords) break;
     chosen.push(sentence);
     wordCount += sentence.trim().split(/\s+/).length;
   }
   if (chosen.length === 0) chosen.push(pool[0]);
   return chosen.join(' ');
+}
+
+function generatePassage(modeValue) {
+  if (modeValue.startsWith(TIME_MODE_PREFIX)) {
+    return pickSentenceChunk(TIME_MODE_INITIAL_WORDS);
+  }
+  const target = PASSAGE_LENGTHS[modeValue] || PASSAGE_LENGTHS.medium;
+  return pickSentenceChunk(target);
 }
 
 const passageEl = document.getElementById('passage');
@@ -334,6 +346,9 @@ const NAV_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'En
 
 const typing = {
   passage: '',
+  mode: 'words',
+  timeLimitMs: null,
+  timeLimitTimeout: null,
   startTime: null,
   finished: false,
   tickInterval: null,
@@ -378,9 +393,36 @@ function escapeHtml(ch) {
   return ch;
 }
 
+function appendPassageSpans(text, startIndex) {
+  const frag = document.createDocumentFragment();
+  text.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'char-pending';
+    span.dataset.i = String(startIndex + i);
+    span.textContent = ch;
+    frag.appendChild(span);
+  });
+  passageEl.appendChild(frag);
+}
+
+function maybeExtendPassage() {
+  if (typing.mode !== 'time') return;
+  const remainingChars = typing.passage.length - typeInput.value.length;
+  if (remainingChars > TIME_MODE_EXTEND_BUFFER_CHARS) return;
+  const extra = ' ' + pickSentenceChunk(TIME_MODE_EXTEND_WORDS);
+  const startIndex = typing.passage.length;
+  typing.passage += extra;
+  appendPassageSpans(extra, startIndex);
+}
+
 function startNewTypingTest() {
   clearInterval(typing.tickInterval);
-  typing.passage = generatePassage(passageLengthSelect.value);
+  clearTimeout(typing.timeLimitTimeout);
+  const modeValue = passageLengthSelect.value;
+  const isTimeMode = modeValue.startsWith(TIME_MODE_PREFIX);
+  typing.mode = isTimeMode ? 'time' : 'words';
+  typing.timeLimitMs = isTimeMode ? parseInt(modeValue.slice(TIME_MODE_PREFIX.length), 10) * 1000 : null;
+  typing.passage = generatePassage(modeValue);
   typing.startTime = null;
   typing.finished = false;
   typing.prevValue = '';
@@ -393,7 +435,7 @@ function startNewTypingTest() {
   wpmChartEl.innerHTML = '';
   wpmLiveEl.textContent = '0';
   accLiveEl.textContent = '100%';
-  timeLiveEl.textContent = '0s';
+  timeLiveEl.textContent = isTimeMode ? Math.ceil(typing.timeLimitMs / 1000) + 's' : '0s';
   renderPassage();
   renderBestWpm();
   typeInput.focus();
@@ -419,7 +461,12 @@ function updateLiveStats() {
   const stats = computeStats(elapsedMs);
   wpmLiveEl.textContent = Math.round(stats.wpm);
   accLiveEl.textContent = Math.round(stats.accuracy) + '%';
-  timeLiveEl.textContent = Math.round(elapsedMs / 1000) + 's';
+  if (typing.mode === 'time') {
+    const remainingMs = Math.max(typing.timeLimitMs - elapsedMs, 0);
+    timeLiveEl.textContent = Math.ceil(remainingMs / 1000) + 's';
+  } else {
+    timeLiveEl.textContent = Math.round(elapsedMs / 1000) + 's';
+  }
 }
 
 function recordWpmSample() {
@@ -464,8 +511,10 @@ function updatePassageHighlight() {
 }
 
 function finishTypingTest() {
+  if (typing.finished) return;
   typing.finished = true;
   clearInterval(typing.tickInterval);
+  clearTimeout(typing.timeLimitTimeout);
   typeInput.disabled = true;
 
   const elapsedMs = performance.now() - typing.startTime;
@@ -487,6 +536,7 @@ function finishTypingTest() {
     accuracy: Math.round(stats.accuracy),
     errors: typing.errorKeystrokes,
     timeMs: Math.round(elapsedMs),
+    mode: typing.mode === 'time' ? `time${Math.round(typing.timeLimitMs / 1000)}` : 'words',
   });
 
   typingResultsEl.classList.remove('hidden');
@@ -532,6 +582,9 @@ typeInput.addEventListener('input', () => {
       updateLiveStats();
       recordWpmSample();
     }, 250);
+    if (typing.mode === 'time') {
+      typing.timeLimitTimeout = setTimeout(finishTypingTest, typing.timeLimitMs);
+    }
   }
 
   let newValue = typeInput.value;
@@ -551,10 +604,11 @@ typeInput.addEventListener('input', () => {
   }
   typing.prevValue = newValue;
 
+  maybeExtendPassage();
   updatePassageHighlight();
   updateLiveStats();
 
-  if (newValue.length === typing.passage.length) {
+  if (typing.mode === 'words' && newValue.length === typing.passage.length) {
     finishTypingTest();
   }
 });

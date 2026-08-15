@@ -60,9 +60,17 @@
     <div class="controls">
       <button id="restartTyping" class="btn">Restart</button>
       <select id="passageLength" class="select">
-        <option value="short">Short</option>
-        <option value="medium" selected>Medium</option>
-        <option value="long">Long</option>
+        <optgroup label="Words">
+          <option value="short">Short</option>
+          <option value="medium" selected>Medium</option>
+          <option value="long">Long</option>
+        </optgroup>
+        <optgroup label="Time">
+          <option value="time15">15s</option>
+          <option value="time30">30s</option>
+          <option value="time60">60s</option>
+          <option value="time120">120s</option>
+        </optgroup>
       </select>
       <span class="hint">Tab or Esc to restart</span>
     </div>
